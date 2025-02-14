@@ -3,9 +3,13 @@ import { Card, CardContent } from "./components/Card.jsx";
 import { Button } from "./components/Button.jsx";
 import { Input } from "./components/Input.jsx";
 import { Textarea } from "./components/Textarea.jsx";
-import { Save, Upload, Star } from "lucide-react";
+import { Save, Upload, Star, WineGlass, Beer, Honey } from "lucide-react"; // Icons für die Kategorien
 
-const categories = ["Wein", "Met", "Bier"];
+const categories = [
+  { name: "Wein", icon: <WineGlass className="w-6 h-6 text-red-600" /> },
+  { name: "Met", icon: <Honey className="w-6 h-6 text-yellow-600" /> },
+  { name: "Bier", icon: <Beer className="w-6 h-6 text-yellow-800" /> },
+];
 
 export default function FeedbackApp() {
   const [feedbacks, setFeedbacks] = useState(() => {
@@ -60,21 +64,30 @@ export default function FeedbackApp() {
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
+    <div className="p-6 max-w-md mx-auto bg-white shadow-lg rounded-lg">
       {!selectedCategory ? (
         <div>
-          <h1 className="text-xl font-bold mb-4">Feedback Übersicht</h1>
+          <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Feedback Übersicht</h1>
           {categories.map((cat) => (
-            <Card key={cat} onClick={() => setSelectedCategory(cat)} className="mb-2 p-4 cursor-pointer">
-              <CardContent className="flex justify-between">
-                <span>{cat}</span>
-                <span className="font-bold">{getAverageRating(cat)}</span>
+            <Card
+              key={cat.name}
+              onClick={() => setSelectedCategory(cat.name)}
+              className="mb-4 p-4 cursor-pointer hover:bg-gray-100 rounded-lg transition"
+            >
+              <CardContent className="flex items-center justify-between">
+                <div className="flex items-center">
+                  {cat.icon}
+                  <span className="ml-2 text-xl text-gray-800">{cat.name}</span>
+                </div>
+                <span className="font-bold text-lg text-gray-700">{getAverageRating(cat.name)}</span>
               </CardContent>
             </Card>
           ))}
-          <div className="flex justify-between mt-4">
-            <Button onClick={exportData} className="flex items-center"><Save className="mr-2" /> Export</Button>
-            <label className="flex items-center cursor-pointer">
+          <div className="flex justify-between mt-6">
+            <Button onClick={exportData} className="flex items-center bg-blue-500 text-white hover:bg-blue-600 transition p-2 rounded">
+              <Save className="mr-2" /> Export
+            </Button>
+            <label className="flex items-center cursor-pointer text-blue-500 hover:text-blue-600 transition">
               <Upload className="mr-2" /> Import
               <input type="file" onChange={importData} className="hidden" />
             </label>
@@ -82,19 +95,31 @@ export default function FeedbackApp() {
         </div>
       ) : (
         <div>
-          <h2 className="text-lg font-bold mb-2">{selectedCategory} bewerten</h2>
-          <div className="mb-4 flex">
+          <h2 className="text-xl font-bold mb-4 text-center text-gray-800">{selectedCategory} bewerten</h2>
+          <div className="mb-6 flex justify-center">
             {[1, 2, 3, 4, 5, 6].map((num) => (
-              <Button key={num} onClick={() => setRating(num)} className={`m-1 flex items-center ${rating === num ? "bg-blue-500 text-white" : ""}`}>
+              <Button
+                key={num}
+                onClick={() => setRating(num)}
+                className={`m-1 p-2 rounded-full border border-gray-300 ${
+                  rating === num ? "bg-blue-500 text-white" : "bg-white text-gray-800"
+                } hover:bg-blue-400 hover:text-white transition`}
+              >
                 <Star className="mr-1" /> {num}
               </Button>
             ))}
           </div>
-          <Textarea placeholder="Dein Kommentar" value={comment} onChange={(e) => setComment(e.target.value)} className="mb-4 w-full" />
-          <Button onClick={submitFeedback} className="w-full">Abschicken</Button>
+          <Textarea
+            placeholder="Dein Kommentar"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            className="mb-6 w-full p-2 border border-gray-300 rounded text-gray-800"
+          />
+          <Button onClick={submitFeedback} className="w-full bg-green-500 text-white hover:bg-green-600 transition py-2 rounded">
+            Abschicken
+          </Button>
         </div>
       )}
     </div>
   );
 }
-
