@@ -7,7 +7,7 @@ function setCategory(category) {
     selectedCategory = category;
     document.getElementById('category-buttons').classList.add('hidden');
     document.getElementById('feedback-form').classList.remove('hidden');
-    document.getElementById('category-name').textContent = category + " bewerten";
+    document.getElementById('category-name').textContent = category + " bewerten - 1 (sehr gut) bis 6 (sehr schlecht)";
 }
 
 // Funktion, um die Bewertung zu setzen
