@@ -32,6 +32,11 @@ function submitFeedback() {
     feedbacks[selectedCategory].push({ rating, comment: document.getElementById('comment').value });
     localStorage.setItem('feedbacks', JSON.stringify(feedbacks));
 
+    //buttons reset
+    for (let i = 1; i <= 6; i++) {
+        const button = document.getElementById('btn-' + i);
+        button.classList.remove('selected'); // Schaltflächen zurücksetzen
+    }
     // Zurück zur Startseite
     document.getElementById('feedback-form').classList.add('hidden');
     document.getElementById('status').classList.remove('hidden');
@@ -40,6 +45,7 @@ function submitFeedback() {
     // Textfeld zurücksetzen
     document.getElementById('comment').value = '';
     rating = null; // Bewertung zurücksetzen
+
 }
 
 // Funktion, um zurück zur Startseite zu gehen
