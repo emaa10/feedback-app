@@ -74,34 +74,16 @@ function updateAverages() {
 //     a.click();
 // }
 
-// Funktion, um die Daten auf File.io hochzuladen
-// Funktion, um die Daten auf File.io hochzuladen
 function exportData() {
-    const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
-    const formData = new FormData();
-    formData.append('file', blob, 'feedbacks.json');
+    // JSON-Daten in einen String umwandeln
+    const jsonString = JSON.stringify(feedbacks, null, 2);
 
-    // Datei auf File.io über den CORS-Proxy hochladen
-    fetch('https://cors-anywhere.herokuapp.com/https://file.io', {
-        method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest' // CORS-Header setzen
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Die Datei wurde erfolgreich hochgeladen. Hier ist der Link: ' + data.link);
-        } else {
-            alert('Fehler beim Hochladen der Datei.');
-        }
-    })
-    .catch(error => {
-        alert('Fehler beim Hochladen der Datei: ' + error);
-    });
+    // JSON-Inhalt in das 'json-content'-Element setzen
+    document.getElementById('json-content').textContent = jsonString;
+
+    // Den JSON-Anzeige-Bereich sichtbar machen
+    document.getElementById('json-display').classList.remove('hidden');
 }
-
 
 
 // Importieren der Daten

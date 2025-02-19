@@ -63,3 +63,9 @@ textarea {
 #category-buttons button {
     font-size: 18px;
 }
+
+#json-display {
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+}
