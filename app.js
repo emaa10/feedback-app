@@ -7,7 +7,7 @@ function setCategory(category) {
     selectedCategory = category;
     document.getElementById('category-buttons').classList.add('hidden');
     document.getElementById('feedback-form').classList.remove('hidden');
-    document.getElementById('category-name').textContent = category + " bewerten";
+    document.getElementById('category-name').textContent = category + " bewerten - 1 (sehr gut) bis 6 (sehr schlecht)";
 }
 
 // Funktion, um die Bewertung zu setzen
@@ -32,6 +32,11 @@ function submitFeedback() {
     feedbacks[selectedCategory].push({ rating, comment: document.getElementById('comment').value });
     localStorage.setItem('feedbacks', JSON.stringify(feedbacks));
 
+    //buttons reset
+    for (let i = 1; i <= 6; i++) {
+        const button = document.getElementById('btn-' + i);
+        button.classList.remove('selected'); // Schaltflächen zurücksetzen
+    }
     // Zurück zur Startseite
     document.getElementById('feedback-form').classList.add('hidden');
     document.getElementById('status').classList.remove('hidden');
@@ -40,6 +45,7 @@ function submitFeedback() {
     // Textfeld zurücksetzen
     document.getElementById('comment').value = '';
     rating = null; // Bewertung zurücksetzen
+
 }
 
 // Funktion, um zurück zur Startseite zu gehen
@@ -60,13 +66,38 @@ function updateAverages() {
 }
 
 // Exportieren der Daten
+// function exportData() {
+//     const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
+//     const a = document.createElement('a');
+//     a.href = URL.createObjectURL(blob);
+//     a.download = 'feedbacks.json';
+//     a.click();
+// }
+
+// Funktion, um die Daten auf File.io hochzuladen
 function exportData() {
     const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'feedbacks.json';
-    a.click();
+    const formData = new FormData();
+    formData.append('file', blob, 'feedbacks.json');
+
+    // Datei auf File.io hochladen
+    fetch('https://file.io', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Die Datei wurde erfolgreich hochgeladen. Hier ist der Link: ' + data.link);
+        } else {
+            alert('Fehler beim Hochladen der Datei.');
+        }
+    })
+    .catch(error => {
+        alert('Fehler beim Hochladen der Datei: ' + error);
+    });
 }
+
 
 // Importieren der Daten
 function importData(event) {
