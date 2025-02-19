@@ -75,14 +75,18 @@ function updateAverages() {
 // }
 
 // Funktion, um die Daten auf File.io hochzuladen
+// Funktion, um die Daten auf File.io hochzuladen
 function exportData() {
     const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
     const formData = new FormData();
     formData.append('file', blob, 'feedbacks.json');
 
-    // Datei auf File.io hochladen
-    fetch('https://file.io', {
+    // Datei auf File.io über den CORS-Proxy hochladen
+    fetch('https://cors-anywhere.herokuapp.com/https://file.io', {
         method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest' // CORS-Header setzen
+        },
         body: formData
     })
     .then(response => response.json())
@@ -97,6 +101,7 @@ function exportData() {
         alert('Fehler beim Hochladen der Datei: ' + error);
     });
 }
+
 
 
 // Importieren der Daten
