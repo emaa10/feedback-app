@@ -66,13 +66,36 @@ function updateAverages() {
 }
 
 // Exportieren der Daten
-function exportData() {
-    const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'feedbacks.json';
-    a.click();
+async function exportData() {
+    const data = JSON.stringify(feedbacks, null, 2);
+    
+    try {
+        const response = await fetch("https://api.github.com/gists", {
+            method: "POST",
+            headers: {
+                "Accept": "application/vnd.github.v3+json",
+                "Authorization": "token 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",
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                description: "Feedback Daten",
+                public: false,
+                files: {
+                    "feedbacks.json": {
+                        content: data
+                    }
+                }
+            })
+        });
+
+        const result = await response.json();
+        alert("Deine Daten wurden hochgeladen:\n" + result.html_url);
+    } catch (error) {
+        alert("Fehler beim Hochladen der Daten: " + error.message);
+    }
 }
+
+
 
 // Importieren der Daten
 function importData(event) {
