@@ -66,35 +66,37 @@ function updateAverages() {
 }
 
 // Exportieren der Daten
-async function exportData() {
-    const data = JSON.stringify(feedbacks, null, 2);
-    
-    try {
-        const response = await fetch("https://api.github.com/gists", {
-            method: "POST",
-            headers: {
-                "Accept": "application/vnd.github.v3+json",
-                "Authorization": "token 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",
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                description: "Feedback Daten",
-                public: false,
-                files: {
-                    "feedbacks.json": {
-                        content: data
-                    }
-                }
-            })
-        });
+// function exportData() {
+//     const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
+//     const a = document.createElement('a');
+//     a.href = URL.createObjectURL(blob);
+//     a.download = 'feedbacks.json';
+//     a.click();
+// }
 
-        const result = await response.json();
-        alert("Deine Daten wurden hochgeladen:\n" + result.html_url);
-    } catch (error) {
-        alert("Fehler beim Hochladen der Daten: " + error.message);
-    }
+// Funktion, um die Daten auf File.io hochzuladen
+function exportData() {
+    const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('file', blob, 'feedbacks.json');
+
+    // Datei auf File.io hochladen
+    fetch('https://file.io', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Die Datei wurde erfolgreich hochgeladen. Hier ist der Link: ' + data.link);
+        } else {
+            alert('Fehler beim Hochladen der Datei.');
+        }
+    })
+    .catch(error => {
+        alert('Fehler beim Hochladen der Datei: ' + error);
+    });
 }
-
 
 
 // Importieren der Daten
