@@ -210,9 +210,23 @@
           <span class="sliderValue">5</span>
         </div>
         <div class="form-group">
-          <label for="met-alkohol">Wie hoch ist die Alkoholwahrnehmung? (1 = kaum, 10 = sehr hoch)</label>
-          <input type="range" id="met-alkohol" name="alkohol" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <label for="met-honig">Wie stark ist der Honiggeschmack? (1 = kaum, 10 = sehr intensiv)</label>
+          <input type="range" id="met-honig" name="honig" min="1" max="10" value="5" oninput="updateSliderValue(this)">
           <span class="sliderValue">5</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="met-nachgeschmack">Wie angenehm ist der Nachgeschmack? (1 = unangenehm, 10 = sehr angenehm)</label>
+          <input type="range" id="met-nachgeschmack" name="nachgeschmack" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Welcher Ansatz wurde probiert?</label>
+          <select id="met-ansatz" name="ansatz">
+            <option value="1">Ansatz 1</option>
+            <option value="2">Ansatz 2</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Gesamtbewertung:</label>
