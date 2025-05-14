@@ -200,7 +200,7 @@
           <span class="sliderValue">5</span>
         </div>
         <div class="form-group">
-          <label for="met-suesse">Wie gut ist die Süße des Mets? (1 = zu trocken, 10 = sehr süß)</label>
+          <label for="met-suesse">Wie süß ist der Met? (1 = zu trocken, 10 = sehr süß)</label>
           <input type="range" id="met-suesse" name="suesse" min="1" max="10" value="5" oninput="updateSliderValue(this)">
           <span class="sliderValue">5</span>
         </div>
@@ -216,7 +216,7 @@
         </div>
         
         <div class="form-group">
-          <label for="met-nachgeschmack">Wie angenehm ist der Nachgeschmack? (1 = unangenehm, 10 = sehr angenehm)</label>
+          <label for="met-nachgeschmack">Wie stark ist der Nachgeschmack? (1 = nicht stark, 10 = sehr stark)</label>
           <input type="range" id="met-nachgeschmack" name="nachgeschmack" min="1" max="10" value="5" oninput="updateSliderValue(this)">
           <span class="sliderValue">5</span>
         </div>
@@ -229,7 +229,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Gesamtbewertung (Abwasser - trinkbar):</label>
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
           <div class="star-input" data-beverage="met">
             <span data-value="1" onclick="setStar(this)">&#9733;</span>
             <span data-value="2" onclick="setStar(this)">&#9733;</span>
@@ -260,7 +260,7 @@
           <input type="text" id="wein-fruechte" name="fruechte">
         </div>
         <div class="form-group">
-          <label for="wein-optik">Ist er optisch ansprechend? (1 = trüb, 10 = klar)</label>
+          <label for="wein-optik">Wie ist die Optik des Weins? (1 = trüb, 10 = klar)</label>
           <input type="range" id="wein-optik" name="optik" min="1" max="10" value="5" oninput="updateSliderValue(this)">
           <span class="sliderValue">5</span>
         </div>
@@ -286,7 +286,7 @@
           <input type="text" name="geschmacksrichtung_andere" placeholder="Bitte angeben" style="display:none; margin-top:5px;">
         </div>
         <div class="form-group">
-          <label>Gesamtbewertung (Abwasser - trinkbar):</label>
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
           <div class="star-input" data-beverage="wein">
             <span data-value="1" onclick="setStar(this)">&#9733;</span>
             <span data-value="2" onclick="setStar(this)">&#9733;</span>
@@ -308,7 +308,7 @@
       <h2>Bewertung: Bier</h2>
       <form onsubmit="submitForm(event, 'bier')">
         <div class="form-group">
-          <label for="bier-optik">Ist es optisch ansprechend? (1 = trüb, 10 = klar)</label>
+          <label for="bier-optik">Wie ist die Optik des Biers? (1 = trüb, 10 = klar)</label>
           <input type="range" id="bier-optik" name="optik" min="1" max="10" value="5" oninput="updateSliderValue(this)">
           <span class="sliderValue">5</span>
         </div>
@@ -340,7 +340,7 @@
           <input type="text" name="nachgeschmack_andere" placeholder="Bitte angeben" style="display:none; margin-top:5px;">
         </div>
         <div class="form-group">
-          <label>Gesamtbewertung (Abwasser - trinkbar):</label>
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
           <div class="star-input" data-beverage="bier">
             <span data-value="1" onclick="setStar(this)">&#9733;</span>
             <span data-value="2" onclick="setStar(this)">&#9733;</span>
