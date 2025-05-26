@@ -386,44 +386,160 @@
     </div>
   </main>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    // Import Firebase functions
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
-    import { getDatabase, ref, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
-    
-    // Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyAMAKRNFsu-n7cyApnlcrOM7QYSvhzwcTQ",
-      authDomain: "feedback-p-seminar.firebaseapp.com",
-      databaseURL: "https://feedback-p-seminar-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "feedback-p-seminar",
-      storageBucket: "feedback-p-seminar.firebasestorage.app",
-      messagingSenderId: "835016380228",
-      appId: "1:835016380228:web:e6a1d66bcdaa0c3ddc9111",
-      measurementId: "G-R25DLFXYQW"
-    };
+  <script>
+    // Firebase configuration and globals
+    let app, database, ratingsRef;
+    let ratings = [];
+    let isOnline = false;
+    let firebaseInitialized = false;
 
     // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const database = getDatabase(app);
-    const ratingsRef = ref(database, 'ratings');
+    async function initFirebase() {
+      try {
+        const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js");
+        const { getDatabase, ref, push, onValue, serverTimestamp, set } = await import("https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js");
+        
+        const firebaseConfig = {
+          apiKey: "AIzaSyAMAKRNFsu-n7cyApnlcrOM7QYSvhzwcTQ",
+          authDomain: "feedback-p-seminar.firebaseapp.com",
+          databaseURL: "https://feedback-p-seminar-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "feedback-p-seminar",
+          storageBucket: "feedback-p-seminar.firebasestorage.app",
+          messagingSenderId: "835016380228",
+          appId: "1:835016380228:web:e6a1d66bcdaa0c3ddc9111",
+          measurementId: "G-R25DLFXYQW"
+        };
 
-    // Global variables
-    let globalRatings = [];
-    let isOnline = false;
+        app = initializeApp(firebaseConfig);
+        database = getDatabase(app);
+        ratingsRef = ref(database, 'ratings');
+        
+        // Store Firebase functions globally
+        window.push = push;
+        window.serverTimestamp = serverTimestamp;
+        window.set = set;
+        window.onValue = onValue;
+        window.ref = ref;
+        
+        firebaseInitialized = true;
+        console.log('Firebase initialized successfully');
+        
+        // Start listening for changes
+        startFirebaseListeners();
+        
+        // Sync local data to Firebase
+        await syncLocalToFirebase();
+        
+      } catch (error) {
+        console.error('Firebase initialization failed:', error);
+        // Continue with localStorage only
+        loadLocalData();
+      }
+    }
 
-    // Connection status monitoring
-    const connectionStatus = document.getElementById('connectionStatus');
-    
-    // Listen for connection state
-    const connectedRef = ref(database, '.info/connected');
-    onValue(connectedRef, (snapshot) => {
-      isOnline = snapshot.val() === true;
-      updateConnectionStatus();
-    });
+    // Start Firebase listeners
+    function startFirebaseListeners() {
+      if (!firebaseInitialized) return;
+      
+      try {
+        const onValue = window.onValue;
+        const ref = window.ref;
+        
+        // Connection status monitoring
+        const connectedRef = ref(database, '.info/connected');
+        onValue(connectedRef, (snapshot) => {
+          isOnline = snapshot.val() === true;
+          updateConnectionStatus();
+          console.log('Connection status:', isOnline ? 'Online' : 'Offline');
+        });
 
+        // Listen for real-time updates from Firebase  
+        onValue(ratingsRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const firebaseData = snapshot.val();
+            const firebaseRatings = Object.keys(firebaseData).map(key => ({
+              firebaseId: key,
+              ...firebaseData[key]
+            }));
+            
+            console.log('Firebase data received:', firebaseRatings.length, 'ratings');
+            mergeRatings(firebaseRatings);
+          } else {
+            console.log('No Firebase data found');
+          }
+        }, (error) => {
+          console.warn('Firebase read failed:', error);
+        });
+        
+      } catch (error) {
+        console.error('Error starting Firebase listeners:', error);
+      }
+    }
+
+    // Merge Firebase data with local data
+    function mergeRatings(firebaseRatings) {
+      const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+      console.log('Local ratings:', localRatings.length);
+      console.log('Firebase ratings:', firebaseRatings.length);
+      
+      // Create a Set of timestamps from Firebase for quick lookup
+      const firebaseTimestamps = new Set(firebaseRatings.map(r => r.timestamp).filter(t => t));
+      
+      // Find local ratings that are not in Firebase
+      const localOnlyRatings = localRatings.filter(rating => 
+        rating.timestamp && !firebaseTimestamps.has(rating.timestamp)
+      );
+      
+      // Combine all ratings
+      const allRatings = [...firebaseRatings, ...localOnlyRatings];
+      
+      // Remove duplicates based on timestamp (keep first occurrence)
+      const uniqueRatings = [];
+      const seenTimestamps = new Set();
+      
+      allRatings.forEach(rating => {
+        if (rating.timestamp && !seenTimestamps.has(rating.timestamp)) {
+          seenTimestamps.add(rating.timestamp);
+          uniqueRatings.push(rating);
+        }
+      });
+      
+      ratings = uniqueRatings;
+      
+      // Update localStorage with merged data
+      localStorage.setItem('ratings', JSON.stringify(ratings));
+      console.log('Merged ratings:', ratings.length, 'total');
+      
+      updateDashboard();
+    }
+
+    // Sync local data to Firebase
+    async function syncLocalToFirebase() {
+      if (!firebaseInitialized || !isOnline) return;
+      
+      try {
+        const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+        console.log('Syncing local data to Firebase:', localRatings.length, 'ratings');
+        
+        for (const rating of localRatings) {
+          if (rating.timestamp && !rating.firebaseId) {
+            // This rating exists locally but not in Firebase
+            console.log('Uploading local rating to Firebase:', rating.timestamp);
+            const newRef = await window.push(ratingsRef, {
+              ...rating,
+              firebaseTimestamp: window.serverTimestamp()
+            });
+            console.log('Successfully uploaded rating with ID:', newRef.key);
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing local data to Firebase:', error);
+      }
+    }
+
+    // Update connection status display
     function updateConnectionStatus() {
+      const connectionStatus = document.getElementById('connectionStatus');
       if (isOnline) {
         connectionStatus.textContent = 'Online';
         connectionStatus.className = 'connection-status online';
@@ -433,192 +549,66 @@
       }
     }
 
-    // Debug localStorage
-    function debugLocalStorage() {
-      const localData = localStorage.getItem('ratings');
-      console.log('LocalStorage raw data:', localData);
-      if (localData) {
-        try {
-          const parsed = JSON.parse(localData);
-          console.log('LocalStorage parsed data:', parsed);
-          console.log('LocalStorage entries count:', parsed.length);
-        } catch (e) {
-          console.error('LocalStorage parse error:', e);
-        }
-      } else {
-        console.log('LocalStorage is empty');
-      }
-    }
-
-    // Load data from localStorage on startup
+    // Load data from localStorage
     function loadLocalData() {
-      debugLocalStorage();
       const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
-      globalRatings = localRatings;
-      console.log('Loaded from localStorage:', globalRatings.length, 'ratings');
+      ratings = localRatings;
+      console.log('Loaded from localStorage:', ratings.length, 'ratings');
       updateDashboard();
     }
 
-    // Listen for real-time updates from Firebase
-    onValue(ratingsRef, (snapshot) => {
-      console.log('Firebase onValue triggered');
-      debugLocalStorage();
-      
-      if (snapshot.exists()) {
-        const firebaseData = snapshot.val();
-        const firebaseRatings = Object.keys(firebaseData).map(key => ({
-          firebaseId: key,
-          ...firebaseData[key]
-        }));
-        
-        console.log('Firebase data loaded:', firebaseRatings.length, 'ratings');
-        console.log('Firebase ratings:', firebaseRatings);
-        
-        // Load existing localStorage data
-        const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
-        console.log('Local ratings before merge:', localRatings.length, 'ratings');
-        
-        // Create a set of Firebase IDs to avoid duplicates
-        const firebaseIds = new Set(firebaseRatings.map(r => r.firebaseId).filter(id => id));
-        
-        // Filter out local ratings that already exist in Firebase (have firebaseId)
-        const localOnlyRatings = localRatings.filter(rating => !rating.firebaseId || !firebaseIds.has(rating.firebaseId));
-        
-        // Combine Firebase data with local-only data
-        globalRatings = [...firebaseRatings, ...localOnlyRatings];
-        
-        console.log('Combined ratings:', globalRatings.length, 'total ratings');
-        console.log('Final globalRatings:', globalRatings);
-        
-        // Update localStorage with combined data
-        localStorage.setItem('ratings', JSON.stringify(globalRatings));
-        debugLocalStorage();
-        
-        updateDashboard();
-      } else {
-        console.log('No Firebase data found, loading from localStorage only');
-        loadLocalData();
-      }
-    }, (error) => {
-      console.warn('Firebase read failed:', error);
-      loadLocalData();
-    });
-
     // Save rating to both Firebase and localStorage
     async function saveRating(ratingData) {
-      console.log('Saving rating:', ratingData);
-      
       // Add timestamp if not present
       if (!ratingData.timestamp) {
         ratingData.timestamp = new Date().toISOString();
       }
       
-      // Add to global ratings array
-      globalRatings.push(ratingData);
-      console.log('Added to globalRatings, new count:', globalRatings.length);
+      // Add to local ratings array
+      ratings.push(ratingData);
       
-      // Always save to localStorage
-      localStorage.setItem('ratings', JSON.stringify(globalRatings));
-      console.log('Saved to localStorage');
-      debugLocalStorage();
+      // Always save to localStorage first
+      localStorage.setItem('ratings', JSON.stringify(ratings));
+      console.log('Rating saved to localStorage, total ratings:', ratings.length);
       
-      // Try to save to Firebase if online
-      if (isOnline) {
+      // Try to save to Firebase if online and initialized
+      if (firebaseInitialized && isOnline) {
         try {
-          const firebaseResult = await push(ratingsRef, {
+          const newRef = await window.push(ratingsRef, {
             ...ratingData,
-            firebaseTimestamp: serverTimestamp()
+            firebaseTimestamp: window.serverTimestamp()
           });
-          console.log('Rating saved to Firebase with key:', firebaseResult.key);
+          console.log('Rating saved to Firebase with ID:', newRef.key);
           
-          // Update the rating with Firebase ID in our local copy
-          const lastRating = globalRatings[globalRatings.length - 1];
-          lastRating.firebaseId = firebaseResult.key;
-          localStorage.setItem('ratings', JSON.stringify(globalRatings));
+          // Update the local rating with Firebase ID
+          const lastRating = ratings[ratings.length - 1];
+          lastRating.firebaseId = newRef.key;
+          localStorage.setItem('ratings', JSON.stringify(ratings));
           
         } catch (error) {
           console.warn('Failed to save to Firebase:', error);
         }
-      } else {
-        console.log('Offline - rating saved locally only');
       }
       
       updateDashboard();
     }
 
-    // Dashboard aktualisieren: Durchschnitt berechnen und Sterne rendern
-    function updateDashboard() {
-      console.log('Updating dashboard with', globalRatings.length, 'total ratings');
-      const beverages = ['met', 'wein', 'bier'];
-      
-      beverages.forEach(bev => {
-        const bevRatings = globalRatings
-          .filter(r => r.beverage === bev)
-          .map(r => parseInt(r.gesamt) || 0)
-          .filter(val => val > 0);
-          
-        console.log(`${bev} ratings:`, bevRatings);
-        
-        let avg = bevRatings.length ? (bevRatings.reduce((a, b) => a + b, 0) / bevRatings.length) : 0;
-        avg = Math.round(avg * 10) / 10;
-        
-        console.log(`${bev} average:`, avg, 'from', bevRatings.length, 'ratings');
-        
-        const avgElement = document.getElementById('avg-' + bev);
-        if (avgElement) {
-          avgElement.childNodes[0].textContent = avg + "/5 Sternen ";
-          const starDisplay = avgElement.querySelector('.star-display');
-          if (starDisplay) {
-            starDisplay.innerHTML = renderStars(avg);
-          }
-        }
-      });
-    }
-
-    // Sterne rendern (volle, halbe, leere)
-    function renderStars(avg) {
-      let full = Math.floor(avg);
-      let half = (avg - full) >= 0.5 ? 1 : 0;
-      let empty = 5 - full - half;
-      let stars = '';
-      for (let i = 0; i < full; i++) stars += "&#9733;";
-      if (half) stars += "&#9734;";
-      for (let i = 0; i < empty; i++) stars += "&#9734;";
-      return stars;
-    }
-
-    // Make functions globally available
-    window.saveRating = saveRating;
-    window.globalRatings = globalRatings;
-    window.updateDashboard = updateDashboard;
-    window.renderStars = renderStars;
-
-    // Initialize on load
-    loadLocalData();
-  </script>
-  
-  <script>
-    // Original functions (keeping all existing functionality)
-    
-    // Formular anzeigen
+    // Original functions
     function showForm(type) {
       document.querySelectorAll('.form-container').forEach(form => form.classList.remove('active'));
       document.getElementById('dashboard').classList.remove('centered');
       document.getElementById('form-' + type).classList.add('active');
     }
     
-    // Sliderwert aktualisieren
     function updateSliderValue(slider) {
       slider.nextElementSibling.textContent = slider.value;
     }
     
-    // "Weitere" Option in Selecten
     function checkWeitere(selectElem) {
       const otherField = selectElem.nextElementSibling;
       otherField.style.display = (selectElem.value === 'weitere') ? 'block' : 'none';
     }
     
-    // Klickbare Sterne in der Bewertung
     function setStar(starElem) {
       const container = starElem.parentElement;
       const stars = container.querySelectorAll('span');
@@ -633,62 +623,78 @@
       container.querySelector('input[name="gesamt"]').value = ratingValue;
     }
     
-    // Formular absenden und speichern
     function submitForm(event, beverage) {
       event.preventDefault();
       const form = event.target;
       const formData = new FormData(form);
-      let entry = { 
-        beverage, 
-        timestamp: new Date().toISOString()
-      };
+      let entry = { beverage, timestamp: new Date().toISOString() };
+      formData.forEach((value, key) => { entry[key] = value; });
       
-      formData.forEach((value, key) => { 
-        entry[key] = value; 
-      });
-      
-      console.log('Submitting form data:', entry);
-      
-      // Use the global saveRating function
-      window.saveRating(entry);
+      saveRating(entry);
       
       alert("Bewertung gespeichert!");
       form.reset();
-      
-      // Reset stars
       form.querySelectorAll('.star-input').forEach(starGroup => {
         starGroup.querySelectorAll('span').forEach(star => star.classList.remove('selected'));
         starGroup.querySelector('input[name="gesamt"]').value = 0;
       });
-      
-      // Reset sliders
-      form.querySelectorAll('input[type="range"]').forEach(slider => {
-        slider.value = 5;
-        slider.nextElementSibling.textContent = '5';
-      });
-      
       // Zurück zum Dashboard
       document.querySelectorAll('.form-container').forEach(form => form.classList.remove('active'));
       document.getElementById('dashboard').classList.add('centered');
     }
     
-    // Daten anzeigen
+    function updateDashboard() {
+      const beverages = ['met', 'wein', 'bier'];
+      beverages.forEach(bev => {
+        const bevRatings = ratings.filter(r => r.beverage === bev)
+                                  .map(r => parseInt(r.gesamt) || 0)
+                                  .filter(val => val > 0);
+        let avg = bevRatings.length ? (bevRatings.reduce((a, b) => a + b, 0) / bevRatings.length) : 0;
+        avg = Math.round(avg * 10) / 10;
+        
+        const avgElement = document.getElementById('avg-' + bev);
+        if (avgElement) {
+          avgElement.childNodes[0].textContent = avg + "/5 Sternen ";
+          const starDisplay = avgElement.querySelector('.star-display');
+          if (starDisplay) {
+            starDisplay.innerHTML = renderStars(avg);
+          }
+        }
+      });
+    }
+    
+    function renderStars(avg) {
+      let full = Math.floor(avg);
+      let half = (avg - full) >= 0.5 ? 1 : 0;
+      let empty = 5 - full - half;
+      let stars = '';
+      for (let i = 0; i < full; i++) stars += "★";
+      if (half) stars += "☆";
+      for (let i = 0; i < empty; i++) stars += "☆";
+      return stars;
+    }
+    
     function showData() {
-      console.log('Showing data, total ratings:', window.globalRatings.length);
-      console.log('Current globalRatings:', window.globalRatings);
-      
-      // Debug localStorage again
-      const localData = localStorage.getItem('ratings');
-      console.log('Current localStorage data:', localData);
-      
-      const dataToShow = window.globalRatings || [];
-      document.getElementById('storedData').textContent = JSON.stringify(dataToShow, null, 2);
+      console.log('Showing data, total ratings:', ratings.length);
+      console.log('Current ratings:', ratings);
+      document.getElementById('storedData').textContent = JSON.stringify(ratings, null, 2);
       document.getElementById('dataModal').style.display = 'flex';
     }
     
     function closeModal() {
       document.getElementById('dataModal').style.display = 'none';
     }
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, initializing application...');
+      
+      // Load local data first
+      loadLocalData();
+      
+      // Initialize Firebase (async)
+      initFirebase();
+    });
   </script>
 </body>
 </html>
