@@ -445,25 +445,37 @@
       if (snapshot.exists()) {
         const firebaseData = snapshot.val();
         const firebaseRatings = Object.keys(firebaseData).map(key => ({
-          id: key,
+          firebaseId: key,
           ...firebaseData[key]
         }));
         
-        // Merge with localStorage data (remove duplicates based on timestamp)
+        console.log('Firebase data loaded:', firebaseRatings);
+        
+        // Load existing localStorage data
         const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+        
+        // Combine all ratings and remove duplicates
         const allRatings = [...localRatings, ...firebaseRatings];
         
-        // Remove duplicates based on timestamp
-        const uniqueRatings = allRatings.filter((rating, index, self) => 
-          index === self.findIndex(r => r.timestamp === rating.timestamp)
-        );
+        // Remove duplicates based on timestamp (keep the first occurrence)
+        const uniqueRatings = [];
+        const seenTimestamps = new Set();
+        
+        allRatings.forEach(rating => {
+          if (rating.timestamp && !seenTimestamps.has(rating.timestamp)) {
+            seenTimestamps.add(rating.timestamp);
+            uniqueRatings.push(rating);
+          }
+        });
         
         ratings = uniqueRatings;
         
-        // Update localStorage with merged data
+        // Always update localStorage with all data (Firebase + local)
         localStorage.setItem('ratings', JSON.stringify(ratings));
+        console.log('Ratings updated:', ratings.length, 'total ratings');
         updateDashboard();
       } else {
+        console.log('No Firebase data, loading from localStorage');
         loadLocalData();
       }
     }, (error) => {
@@ -473,9 +485,12 @@
 
     // Save rating to both Firebase and localStorage
     async function saveRating(ratingData) {
-      // Always save to localStorage first
+      // Add to local ratings array
       ratings.push(ratingData);
+      
+      // Always save to localStorage
       localStorage.setItem('ratings', JSON.stringify(ratings));
+      console.log('Rating saved to localStorage, total ratings:', ratings.length);
       
       // Try to save to Firebase if online
       if (isOnline) {
@@ -588,6 +603,8 @@
     
     // Daten anzeigen
     function showData() {
+      console.log('Showing data, total ratings:', window.ratings.length);
+      console.log('Current ratings:', window.ratings);
       document.getElementById('storedData').textContent = JSON.stringify(window.ratings, null, 2);
       document.getElementById('dataModal').style.display = 'flex';
     }
