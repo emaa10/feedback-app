@@ -393,6 +393,23 @@
     let isOnline = false;
     let firebaseInitialized = false;
 
+    // Retry sync every 30 seconds when offline data exists
+    function startSyncRetry() {
+      setInterval(() => {
+        if (isOnline && firebaseInitialized) {
+          const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+          const hasUnsyncedData = localRatings.some(rating => 
+          rating.timestamp && !rating.firebaseId && !rating.syncing
+        );
+          
+          if (hasUnsyncedData) {
+            console.log('Retrying sync of unsynced data...');
+            syncLocalToFirebase();
+          }
+        }
+      }, 30000); // 30 seconds
+    }
+  
     // Initialize Firebase
     async function initFirebase() {
       try {
@@ -429,6 +446,7 @@
         
         // Sync local data to Firebase
         await syncLocalToFirebase();
+        startSyncRetry();
         
       } catch (error) {
         console.error('Firebase initialization failed:', error);
@@ -519,19 +537,41 @@
       
       try {
         const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
-        console.log('Syncing local data to Firebase:', localRatings.length, 'ratings');
+        const unsyncedRatings = localRatings.filter(rating => 
+          rating.timestamp && !rating.firebaseId && !rating.syncing
+        );
         
-        for (const rating of localRatings) {
-          if (rating.timestamp && !rating.firebaseId) {
-            // This rating exists locally but not in Firebase
+        console.log('Syncing local data to Firebase:', unsyncedRatings.length, 'unsynced ratings');
+        
+        for (const rating of unsyncedRatings) {
+          // Mark as syncing to prevent duplicate uploads
+          rating.syncing = true;
+          localStorage.setItem('ratings', JSON.stringify(localRatings));
+          
+          try {
             console.log('Uploading local rating to Firebase:', rating.timestamp);
             const newRef = await window.push(ratingsRef, {
               ...rating,
               firebaseTimestamp: window.serverTimestamp()
             });
+            
+            // Mark as synced
+            rating.firebaseId = newRef.key;
+            delete rating.syncing;
+            localStorage.setItem('ratings', JSON.stringify(localRatings));
+            
             console.log('Successfully uploaded rating with ID:', newRef.key);
+          } catch (error) {
+            // Remove syncing flag on error
+            delete rating.syncing;
+            localStorage.setItem('ratings', JSON.stringify(localRatings));
+            console.error('Failed to upload rating:', error);
           }
         }
+        
+        // Update ratings array with latest localStorage data
+        ratings = localRatings;
+        
       } catch (error) {
         console.error('Error syncing local data to Firebase:', error);
       }
@@ -543,6 +583,8 @@
       if (isOnline) {
         connectionStatus.textContent = 'Online';
         connectionStatus.className = 'connection-status online';
+        // Sync when coming back online
+        syncLocalToFirebase();
       } else {
         connectionStatus.textContent = 'Offline';
         connectionStatus.className = 'connection-status offline';
