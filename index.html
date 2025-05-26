@@ -21,7 +21,19 @@
       color: #333;
       background: #fff;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
     }
+    .connection-status {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-size: 0.6em;
+      padding: 5px 10px;
+      border-radius: 15px;
+      color: white;
+    }
+    .connection-status.online { background: #28a745; }
+    .connection-status.offline { background: #dc3545; }
     main {
       flex: 1;
       padding: 20px;
@@ -166,6 +178,7 @@
 <body>
   <header>
     P-Seminar Chemie - Bewertung der Getränke
+    <div id="connectionStatus" class="connection-status offline">Offline</div>
   </header>
   
   <main>
@@ -372,11 +385,124 @@
       </div>
     </div>
   </main>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    // Import Firebase functions
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+    import { getDatabase, ref, push, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-database.js";
+    
+    // Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAMAKRNFsu-n7cyApnlcrOM7QYSvhzwcTQ",
+      authDomain: "feedback-p-seminar.firebaseapp.com",
+      databaseURL: "https://feedback-p-seminar-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "feedback-p-seminar",
+      storageBucket: "feedback-p-seminar.firebasestorage.app",
+      messagingSenderId: "835016380228",
+      appId: "1:835016380228:web:e6a1d66bcdaa0c3ddc9111",
+      measurementId: "G-R25DLFXYQW"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const ratingsRef = ref(database, 'ratings');
+
+    // Global variables
+    let ratings = [];
+    let isOnline = false;
+
+    // Connection status monitoring
+    const connectionStatus = document.getElementById('connectionStatus');
+    
+    // Listen for connection state
+    const connectedRef = ref(database, '.info/connected');
+    onValue(connectedRef, (snapshot) => {
+      isOnline = snapshot.val() === true;
+      updateConnectionStatus();
+    });
+
+    function updateConnectionStatus() {
+      if (isOnline) {
+        connectionStatus.textContent = 'Online';
+        connectionStatus.className = 'connection-status online';
+      } else {
+        connectionStatus.textContent = 'Offline';
+        connectionStatus.className = 'connection-status offline';
+      }
+    }
+
+    // Load data from localStorage on startup
+    function loadLocalData() {
+      const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+      ratings = localRatings;
+      updateDashboard();
+    }
+
+    // Listen for real-time updates from Firebase
+    onValue(ratingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const firebaseData = snapshot.val();
+        const firebaseRatings = Object.keys(firebaseData).map(key => ({
+          id: key,
+          ...firebaseData[key]
+        }));
+        
+        // Merge with localStorage data (remove duplicates based on timestamp)
+        const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
+        const allRatings = [...localRatings, ...firebaseRatings];
+        
+        // Remove duplicates based on timestamp
+        const uniqueRatings = allRatings.filter((rating, index, self) => 
+          index === self.findIndex(r => r.timestamp === rating.timestamp)
+        );
+        
+        ratings = uniqueRatings;
+        
+        // Update localStorage with merged data
+        localStorage.setItem('ratings', JSON.stringify(ratings));
+        updateDashboard();
+      } else {
+        loadLocalData();
+      }
+    }, (error) => {
+      console.warn('Firebase read failed:', error);
+      loadLocalData();
+    });
+
+    // Save rating to both Firebase and localStorage
+    async function saveRating(ratingData) {
+      // Always save to localStorage first
+      ratings.push(ratingData);
+      localStorage.setItem('ratings', JSON.stringify(ratings));
+      
+      // Try to save to Firebase if online
+      if (isOnline) {
+        try {
+          await push(ratingsRef, {
+            ...ratingData,
+            firebaseTimestamp: serverTimestamp()
+          });
+          console.log('Rating saved to Firebase');
+        } catch (error) {
+          console.warn('Failed to save to Firebase:', error);
+        }
+      }
+      
+      updateDashboard();
+    }
+
+    // Make functions globally available
+    window.saveRating = saveRating;
+    window.ratings = ratings;
+
+    // Initialize on load
+    loadLocalData();
+  </script>
   
   <script>
-    // Beim Laden: LocalStorage-Daten initialisieren und Dashboard aktualisieren
-    let ratings = JSON.parse(localStorage.getItem('ratings')) || [];
-    updateDashboard();
+    // Original functions (keeping all existing functionality)
     
     // Formular anzeigen
     function showForm(type) {
@@ -411,15 +537,17 @@
       container.querySelector('input[name="gesamt"]').value = ratingValue;
     }
     
-    // Formular absenden und speichern
+    // Formular absenden und speichern (modified to use Firebase)
     function submitForm(event, beverage) {
       event.preventDefault();
       const form = event.target;
       const formData = new FormData(form);
       let entry = { beverage, timestamp: new Date().toISOString() };
       formData.forEach((value, key) => { entry[key] = value; });
-      ratings.push(entry);
-      localStorage.setItem('ratings', JSON.stringify(ratings));
+      
+      // Use the global saveRating function
+      window.saveRating(entry);
+      
       alert("Bewertung gespeichert!");
       form.reset();
       form.querySelectorAll('.star-input').forEach(starGroup => {
@@ -429,14 +557,13 @@
       // Zurück zum Dashboard
       document.querySelectorAll('.form-container').forEach(form => form.classList.remove('active'));
       document.getElementById('dashboard').classList.add('centered');
-      updateDashboard();
     }
     
     // Dashboard aktualisieren: Durchschnitt berechnen und Sterne rendern
     function updateDashboard() {
       const beverages = ['met', 'wein', 'bier'];
       beverages.forEach(bev => {
-        const bevRatings = ratings.filter(r => r.beverage === bev)
+        const bevRatings = window.ratings.filter(r => r.beverage === bev)
                                   .map(r => parseInt(r.gesamt) || 0)
                                   .filter(val => val > 0);
         let avg = bevRatings.length ? (bevRatings.reduce((a, b) => a + b, 0) / bevRatings.length) : 0;
@@ -461,7 +588,7 @@
     
     // Daten anzeigen
     function showData() {
-      document.getElementById('storedData').textContent = JSON.stringify(ratings, null, 2);
+      document.getElementById('storedData').textContent = JSON.stringify(window.ratings, null, 2);
       document.getElementById('dataModal').style.display = 'flex';
     }
     
@@ -471,4 +598,3 @@
   </script>
 </body>
 </html>
-
