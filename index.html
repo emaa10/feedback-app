@@ -455,7 +455,6 @@
       }
     }
 
-    // Start Firebase listeners
     function startFirebaseListeners() {
       if (!firebaseInitialized) return;
       
@@ -463,71 +462,83 @@
         const onValue = window.onValue;
         const ref = window.ref;
         
-        // Connection status monitoring
+        // Enhanced connection monitoring with retry logic
         const connectedRef = ref(database, '.info/connected');
         onValue(connectedRef, (snapshot) => {
+          const wasOnline = isOnline;
           isOnline = snapshot.val() === true;
+          
+          if (!wasOnline && isOnline) {
+            console.log('Connection restored, syncing data...');
+            setTimeout(() => syncLocalToFirebase(), 1000); // Small delay
+          }
+          
           updateConnectionStatus();
           console.log('Connection status:', isOnline ? 'Online' : 'Offline');
         });
 
-        // Listen for real-time updates from Firebase  
-        onValue(ratingsRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const firebaseData = snapshot.val();
-            const firebaseRatings = Object.keys(firebaseData).map(key => ({
-              firebaseId: key,
-              ...firebaseData[key]
-            }));
-            
-            console.log('Firebase data received:', firebaseRatings.length, 'ratings');
-            mergeRatings(firebaseRatings);
-          } else {
-            console.log('No Firebase data found');
-          }
-        }, (error) => {
-          console.warn('Firebase read failed:', error);
-        });
+        // Robust data listening with error recovery
+        const setupDataListener = () => {
+          onValue(ratingsRef, (snapshot) => {
+            if (snapshot.exists()) {
+              const firebaseData = snapshot.val();
+              const firebaseRatings = Object.keys(firebaseData).map(key => ({
+                firebaseId: key,
+                ...firebaseData[key]
+              }));
+              
+              console.log('Firebase data received:', firebaseRatings.length, 'ratings');  
+              mergeRatings(firebaseRatings);
+            }
+          }, (error) => {
+            console.warn('Firebase read failed, retrying in 5s:', error);
+            setTimeout(setupDataListener, 5000);
+          });
+        };
+        
+        setupDataListener();
         
       } catch (error) {
         console.error('Error starting Firebase listeners:', error);
+        setTimeout(() => startFirebaseListeners(), 5000); // Retry
       }
     }
 
-    // Merge Firebase data with local data
     function mergeRatings(firebaseRatings) {
       const localRatings = JSON.parse(localStorage.getItem('ratings')) || [];
       console.log('Local ratings:', localRatings.length);
       console.log('Firebase ratings:', firebaseRatings.length);
       
-      // Create a Set of timestamps from Firebase for quick lookup
-      const firebaseTimestamps = new Set(firebaseRatings.map(r => r.timestamp).filter(t => t));
+      // Create maps for better duplicate detection
+      const firebaseMap = new Map();
+      firebaseRatings.forEach(rating => {
+        if (rating.timestamp) firebaseMap.set(rating.timestamp, rating);
+        if (rating.clientId) firebaseMap.set(rating.clientId, rating);
+      });
       
-      // Find local ratings that are not in Firebase
-      const localOnlyRatings = localRatings.filter(rating => 
-        rating.timestamp && !firebaseTimestamps.has(rating.timestamp)
-      );
+      // Find truly unique local ratings
+      const localOnlyRatings = localRatings.filter(rating => {
+        const hasTimestamp = rating.timestamp && !firebaseMap.has(rating.timestamp);
+        const hasClientId = rating.clientId && !firebaseMap.has(rating.clientId);
+        return (hasTimestamp || hasClientId) && !rating.firebaseId;
+      });
       
-      // Combine all ratings
+      // Combine and deduplicate
       const allRatings = [...firebaseRatings, ...localOnlyRatings];
-      
-      // Remove duplicates based on timestamp (keep first occurrence)
       const uniqueRatings = [];
-      const seenTimestamps = new Set();
+      const seenKeys = new Set();
       
       allRatings.forEach(rating => {
-        if (rating.timestamp && !seenTimestamps.has(rating.timestamp)) {
-          seenTimestamps.add(rating.timestamp);
+        const key = rating.clientId || rating.timestamp || Math.random().toString();
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key);
           uniqueRatings.push(rating);
         }
       });
       
       ratings = uniqueRatings;
-      
-      // Update localStorage with merged data
       localStorage.setItem('ratings', JSON.stringify(ratings));
       console.log('Merged ratings:', ratings.length, 'total');
-      
       updateDashboard();
     }
 
@@ -599,39 +610,73 @@
       updateDashboard();
     }
 
-    // Save rating to both Firebase and localStorage
+    // Add before saveRating function
+    let savingQueue = [];
+    let isSaving = false;
+
     async function saveRating(ratingData) {
-      // Add timestamp if not present
-      if (!ratingData.timestamp) {
-        ratingData.timestamp = new Date().toISOString();
+      // Add to queue to prevent race conditions
+      savingQueue.push(ratingData);
+      
+      if (isSaving) {
+        console.log('Save already in progress, queued rating');
+        return;
       }
       
-      // Add to local ratings array
-      ratings.push(ratingData);
+      await processSaveQueue();
+    }
+
+    async function processSaveQueue() {
+      isSaving = true;
       
-      // Always save to localStorage first
-      localStorage.setItem('ratings', JSON.stringify(ratings));
-      console.log('Rating saved to localStorage, total ratings:', ratings.length);
-      
-      // Try to save to Firebase if online and initialized
-      if (firebaseInitialized && isOnline) {
-        try {
-          const newRef = await window.push(ratingsRef, {
-            ...ratingData,
-            firebaseTimestamp: window.serverTimestamp()
-          });
-          console.log('Rating saved to Firebase with ID:', newRef.key);
-          
-          // Update the local rating with Firebase ID
-          const lastRating = ratings[ratings.length - 1];
-          lastRating.firebaseId = newRef.key;
-          localStorage.setItem('ratings', JSON.stringify(ratings));
-          
-        } catch (error) {
-          console.warn('Failed to save to Firebase:', error);
+      while (savingQueue.length > 0) {
+        const ratingData = savingQueue.shift();
+        
+        // Add timestamp if not present + unique ID to prevent duplicates
+        if (!ratingData.timestamp) {
+          ratingData.timestamp = new Date().toISOString();
+        }
+        ratingData.clientId = 'ipad_' + Math.random().toString(36).substr(2, 9);
+        
+        // Add to local ratings array
+        ratings.push(ratingData);
+        
+        // Always save to localStorage first
+        localStorage.setItem('ratings', JSON.stringify(ratings));
+        console.log('Rating saved to localStorage, total ratings:', ratings.length);
+        
+        // Try to save to Firebase with retry logic
+        if (firebaseInitialized && isOnline) {
+          let retries = 3;
+          while (retries > 0) {
+            try {
+              const newRef = await window.push(ratingsRef, {
+                ...ratingData,
+                firebaseTimestamp: window.serverTimestamp()
+              });
+              console.log('Rating saved to Firebase with ID:', newRef.key);
+              
+              // Update the local rating with Firebase ID
+              const lastRating = ratings[ratings.length - 1];
+              lastRating.firebaseId = newRef.key;
+              localStorage.setItem('ratings', JSON.stringify(ratings));
+              break;
+              
+            } catch (error) {
+              retries--;
+              console.warn(`Firebase save failed, ${retries} retries left:`, error);
+              if (retries === 0) {
+                console.error('All retries exhausted, data will sync when online');
+              } else {
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
+          }
         }
       }
       
+      isSaving = false;
       updateDashboard();
     }
 
