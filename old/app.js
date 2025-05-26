@@ -74,15 +74,29 @@ function updateAverages() {
 //     a.click();
 // }
 
+
+// Funktion, um die Daten auf File.io hochzuladen
 function exportData() {
-    // JSON-Daten in einen String umwandeln
-    const jsonString = JSON.stringify(feedbacks, null, 2);
+    const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });
+    const formData = new FormData();
+    formData.append('file', blob, 'feedbacks.json');
 
-    // JSON-Inhalt in das 'json-content'-Element setzen
-    document.getElementById('json-content').textContent = jsonString;
-
-    // Den JSON-Anzeige-Bereich sichtbar machen
-    document.getElementById('json-display').classList.remove('hidden');
+    // Datei auf File.io hochladen
+    fetch('https://file.io', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Die Datei wurde erfolgreich hochgeladen. Hier ist der Link: ' + data.link);
+        } else {
+            alert('Fehler beim Hochladen der Datei.');
+        }
+    })
+    .catch(error => {
+        alert('Fehler beim Hochladen der Datei: ' + error);
+    });
 }
 
 
