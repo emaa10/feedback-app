@@ -74,6 +74,7 @@ function updateAverages() {
 //     a.click();
 // }
 
+
 // Funktion, um die Daten auf File.io hochzuladen
 function exportData() {
     const blob = new Blob([JSON.stringify(feedbacks, null, 2)], { type: 'application/json' });

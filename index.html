@@ -1,72 +1,474 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feedback App</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <style>
-        .hidden { display: none; }
-        .button { 
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .button:hover { background-color: #45a049; }
-        .button:active { background-color: #387a38; }
-        .button.selected { background-color: #2d6a1f; } /* Dunklere Farbe für ausgewählte */
-        .button:focus { outline: none; }
-    </style>
+  <meta charset="UTF-8">
+  <title>P-Seminar Chemie - Bewertung der Getränke</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f0f2f5;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 20px;
+      text-align: center;
+      font-size: 1.8em;
+      color: #333;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    main {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+    .dashboard {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 30px 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    .dashboard.centered {
+      justify-content: center;
+    }
+    .dashboard-section {
+      text-align: center;
+      margin: 0 15px;
+    }
+    .dashboard-section button {
+      font-size: 1.2em;
+      padding: 15px 25px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      background: #555;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+      transition: background 0.3s;
+    }
+    .dashboard-section button:hover {
+      background: #444;
+    }
+    .star-display {
+      font-size: 1.5em;
+      color: #ffa500;
+      display: block;
+      margin-top: 5px;
+    }
+    .form-container {
+      display: none;
+      background: #fff;
+      padding: 25px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .form-container.active { display: block; }
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+    input[type="range"] { width: 80%; }
+    input[type="text"], textarea, select {
+      width: 95%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 1em;
+    }
+    .star-input span {
+      font-size: 1.8em;
+      cursor: pointer;
+      color: #ccc;
+      transition: color 0.2s;
+    }
+    .star-input span.selected { color: #ffa500; }
+    .sliderValue {
+      display: inline-block;
+      width: 30px;
+      text-align: center;
+      font-size: 1em;
+      color: #333;
+    }
+    button.submit-btn {
+      font-size: 1.1em;
+      padding: 12px 25px;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button.submit-btn:hover { background: #222; }
+    /* Daten anzeigen Button ganz unten */
+    .data-btn-container {
+      margin-top: auto;
+      text-align: center;
+    }
+    .data-btn-container button {
+      font-size: 1.1em;
+      padding: 12px 25px;
+      background: #777;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .data-btn-container button:hover { background: #666; }
+    /* Modal */
+    #dataModal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right:0;
+      bottom:0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    #dataModal .modal-content {
+      background: #fff;
+      max-height: 80%;
+      overflow-y: auto;
+      padding: 25px;
+      border-radius: 12px;
+      width: 95%;
+      max-width: 600px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    #closeModal {
+      float: right;
+      cursor: pointer;
+      font-weight: bold;
+      color: #555;
+    }
+  </style>
 </head>
-<body class="bg-gray-100">
-    <div id="app" class="p-6 max-w-lg mx-auto">
-        <!-- Feedback Startseite -->
-        <div id="category-buttons">
-            <h1 class="text-2xl font-bold mb-6">Feedback</h1>
-            <div class="mb-4">
-                <button id="wein-btn" class="button w-full mb-2" onclick="setCategory('Wein')">Wein</button>
-                <button id="met-btn" class="button w-full mb-2" onclick="setCategory('Met')">Met</button>
-                <button id="bier-btn" class="button w-full mb-2" onclick="setCategory('Bier')">Bier</button>
-            </div>
-            <div class="flex justify-between">
-                <div id="wein-avg">Wein: -</div>
-                <div id="met-avg">Met: -</div>
-                <div id="bier-avg">Bier: -</div>
-            </div>
-            <div class="mt-4 flex justify-between">
-                <button class="button w-28" onclick="exportData()">Export</button>
-                <label class="button flex items-center cursor-pointer">
-                    Import
-                    <input type="file" class="hidden" onchange="importData(event)">
-                </label>
-            </div>
-        </div>
-
-        <!-- Feedback Formular -->
-        <div id="feedback-form" class="hidden">
-            <h2 id="category-name" class="text-lg font-bold mb-2"></h2>
-            <div class="mb-4 flex">
-                <button id="btn-1" onclick="setRating(1)" class="button w-14 mb-2 mr-2">1</button>
-                <button id="btn-2" onclick="setRating(2)" class="button w-14 mb-2 mr-2">2</button>
-                <button id="btn-3" onclick="setRating(3)" class="button w-14 mb-2 mr-2">3</button>
-                <button id="btn-4" onclick="setRating(4)" class="button w-14 mb-2 mr-2">4</button>
-                <button id="btn-5" onclick="setRating(5)" class="button w-14 mb-2 mr-2">5</button>
-                <button id="btn-6" onclick="setRating(6)" class="button w-14 mb-2 mr-2">6</button>
-            </div>
-            <textarea id="comment" placeholder="Dein Kommentar" class="w-full p-2 border border-gray-300 rounded mb-4" rows="4"></textarea>
-            <button class="button w-full" onclick="submitFeedback()">Abschicken</button>
-        </div>
-
-        <div id="status" class="hidden">
-            <h2>Bewertung für <span id="status-category"></span></h2>
-            <p>Danke für deine Bewertung!</p>
-            <button class="button w-full mt-4" onclick="backToHome()">Zurück zur Startseite</button>
-        </div>
+<body>
+  <header>
+    P-Seminar Chemie - Bewertung der Getränke
+  </header>
+  
+  <main>
+    <!-- Dashboard -->
+    <div id="dashboard" class="dashboard centered">
+      <div class="dashboard-section">
+        <button onclick="showForm('met')">Met</button>
+        <div id="avg-met">0/5 Sternen <span class="star-display"></span></div>
+      </div>
+      <div class="dashboard-section">
+        <button onclick="showForm('wein')">Wein</button>
+        <div id="avg-wein">0/5 Sternen <span class="star-display"></span></div>
+      </div>
+      <div class="dashboard-section">
+        <button onclick="showForm('bier')">Bier</button>
+        <div id="avg-bier">0/5 Sternen <span class="star-display"></span></div>
+      </div>
     </div>
-
-    <script src="app.js"></script>
+    
+    <!-- Hinweis -->
+    <p style="text-align:center; font-weight:600; margin-bottom:25px; color:#555;">
+      Bitte bis auf die letzte Frage neutral bewerten und nicht nach eigenem Geschmack.
+    </p>
+    
+    <!-- Formulare -->
+    <div id="form-met" class="form-container">
+      <h2>Bewertung: Met</h2>
+      <form onsubmit="submitForm(event, 'met')">
+        <div class="form-group">
+          <label for="met-intensiv">Wie intensiv ist der Geschmack des Mets? (1 = wenig, 10 = sehr intensiv)</label>
+          <input type="range" id="met-intensiv" name="intensiv" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="met-suesse">Wie süß ist der Met? (1 = zu trocken, 10 = sehr süß)</label>
+          <input type="range" id="met-suesse" name="suesse" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="met-optik">Wie ansprechend ist die Farbe/Optik? (1 = unansehnlich, 10 = sehr ansprechend)</label>
+          <input type="range" id="met-optik" name="optik" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="met-honig">Wie stark ist der Honiggeschmack? (1 = kaum, 10 = sehr intensiv)</label>
+          <input type="range" id="met-honig" name="honig" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        
+        <div class="form-group">
+          <label for="met-nachgeschmack">Wie stark ist der Nachgeschmack? (1 = nicht stark, 10 = sehr stark)</label>
+          <input type="range" id="met-nachgeschmack" name="nachgeschmack" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        
+        <div class="form-group">
+          <label>Welcher Ansatz wurde probiert?</label>
+          <select id="met-ansatz" name="ansatz">
+            <option value="1">Ansatz 1</option>
+            <option value="2">Ansatz 2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
+          <div class="star-input" data-beverage="met">
+            <span data-value="1" onclick="setStar(this)">&#9733;</span>
+            <span data-value="2" onclick="setStar(this)">&#9733;</span>
+            <span data-value="3" onclick="setStar(this)">&#9733;</span>
+            <span data-value="4" onclick="setStar(this)">&#9733;</span>
+            <span data-value="5" onclick="setStar(this)">&#9733;</span>
+            <input type="hidden" name="gesamt" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="met-kommentar">Kommentare:</label>
+          <textarea id="met-kommentar" name="kommentar" rows="3"></textarea>
+        </div>
+        <button type="submit" class="submit-btn">Bewertung speichern</button>
+      </form>
+    </div>
+    
+    <div id="form-wein" class="form-container">
+      <h2>Bewertung: Wein</h2>
+      <form onsubmit="submitForm(event, 'wein')">
+        <div class="form-group">
+          <label for="wein-geschmack">Wie geschmacksintensiv ist der Wein? (1 = leer, 10 = voll)</label>
+          <input type="range" id="wein-geschmack" name="geschmack" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="wein-fruechte">Welche Früchte kann man herausschmecken und was ist am meisten präsent?</label>
+          <input type="text" id="wein-fruechte" name="fruechte">
+        </div>
+        <div class="form-group">
+          <label for="wein-optik">Wie ist die Optik des Weins? (1 = trüb, 10 = klar)</label>
+          <input type="range" id="wein-optik" name="optik" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="wein-geruch">Wie hoch ist die Geruchsintensität? (1 = schwach, 10 = stark)</label>
+          <input type="range" id="wein-geruch" name="geruch" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="wein-suesse">Ist der Wein eher süß oder sauer? (1 = sauer, 10 = süß)</label>
+          <input type="range" id="wein-suesse" name="suesse" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label>Welche Geschmacksrichtung liegt vor?</label>
+          <select name="geschmacksrichtung" onchange="checkWeitere(this)">
+            <option value="trocken">trocken</option>
+            <option value="halbtrocken">halbtrocken</option>
+            <option value="lieblich">lieblich</option>
+            <option value="suess">süß</option>
+            <option value="weitere">weitere</option>
+          </select>
+          <input type="text" name="geschmacksrichtung_andere" placeholder="Bitte angeben" style="display:none; margin-top:5px;">
+        </div>
+        <div class="form-group">
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
+          <div class="star-input" data-beverage="wein">
+            <span data-value="1" onclick="setStar(this)">&#9733;</span>
+            <span data-value="2" onclick="setStar(this)">&#9733;</span>
+            <span data-value="3" onclick="setStar(this)">&#9733;</span>
+            <span data-value="4" onclick="setStar(this)">&#9733;</span>
+            <span data-value="5" onclick="setStar(this)">&#9733;</span>
+            <input type="hidden" name="gesamt" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="wein-kommentar">Kommentare:</label>
+          <textarea id="wein-kommentar" name="kommentar" rows="3"></textarea>
+        </div>
+        <button type="submit" class="submit-btn">Bewertung speichern</button>
+      </form>
+    </div>
+    
+    <div id="form-bier" class="form-container">
+      <h2>Bewertung: Bier</h2>
+      <form onsubmit="submitForm(event, 'bier')">
+        <div class="form-group">
+          <label for="bier-optik">Wie ist die Optik des Biers? (1 = trüb, 10 = klar)</label>
+          <input type="range" id="bier-optik" name="optik" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="bier-bitter">Wie bitter ist das Bier? (1 = leicht bitter, 10 = stark bitter)</label>
+          <input type="range" id="bier-bitter" name="bitter" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="bier-kohlensaure">Wie viel Kohlensäure enthält das Bier? (1 = keine, 10 = sehr viel)</label>
+          <input type="range" id="bier-kohlensaure" name="kohlensaure" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label for="bier-sueffigkeit">Wie ist die Süffigkeit des Bieres? (1 = wenig trinkbar, 10 = sehr trinkbar)</label>
+          <input type="range" id="bier-sueffigkeit" name="sueffigkeit" min="1" max="10" value="5" oninput="updateSliderValue(this)">
+          <span class="sliderValue">5</span>
+        </div>
+        <div class="form-group">
+          <label>Wie ist der Nachgeschmack des Biers?</label>
+          <select name="nachgeschmack" onchange="checkWeitere(this)">
+            <option value="fruchtig">Fruchtig</option>
+            <option value="brotig">Brotig</option>
+            <option value="herb">Herb</option>
+            <option value="sauer">Sauer</option>
+            <option value="bitter">Bitter</option>
+            <option value="weitere">Weitere</option>
+          </select>
+          <input type="text" name="nachgeschmack_andere" placeholder="Bitte angeben" style="display:none; margin-top:5px;">
+        </div>
+        <div class="form-group">
+          <label>Gesamtbewertung (Abwasser - sensationell):</label>
+          <div class="star-input" data-beverage="bier">
+            <span data-value="1" onclick="setStar(this)">&#9733;</span>
+            <span data-value="2" onclick="setStar(this)">&#9733;</span>
+            <span data-value="3" onclick="setStar(this)">&#9733;</span>
+            <span data-value="4" onclick="setStar(this)">&#9733;</span>
+            <span data-value="5" onclick="setStar(this)">&#9733;</span>
+            <input type="hidden" name="gesamt" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="bier-kommentar">Kommentare:</label>
+          <textarea id="bier-kommentar" name="kommentar" rows="3"></textarea>
+        </div>
+        <button type="submit" class="submit-btn">Bewertung speichern</button>
+      </form>
+    </div>
+    
+    <!-- Daten anzeigen Button ganz unten -->
+    <div class="data-btn-container">
+      <button onclick="showData()">Daten anzeigen</button>
+    </div>
+    
+    <!-- Modal für gespeicherte Daten -->
+    <div id="dataModal">
+      <div class="modal-content">
+        <span id="closeModal" onclick="closeModal()">[Schließen]</span>
+        <h2>Gespeicherte Bewertungen</h2>
+        <pre id="storedData" style="white-space: pre-wrap;"></pre>
+      </div>
+    </div>
+  </main>
+  
+  <script>
+    // Beim Laden: LocalStorage-Daten initialisieren und Dashboard aktualisieren
+    let ratings = JSON.parse(localStorage.getItem('ratings')) || [];
+    updateDashboard();
+    
+    // Formular anzeigen
+    function showForm(type) {
+      document.querySelectorAll('.form-container').forEach(form => form.classList.remove('active'));
+      document.getElementById('dashboard').classList.remove('centered');
+      document.getElementById('form-' + type).classList.add('active');
+    }
+    
+    // Sliderwert aktualisieren
+    function updateSliderValue(slider) {
+      slider.nextElementSibling.textContent = slider.value;
+    }
+    
+    // "Weitere" Option in Selecten
+    function checkWeitere(selectElem) {
+      const otherField = selectElem.nextElementSibling;
+      otherField.style.display = (selectElem.value === 'weitere') ? 'block' : 'none';
+    }
+    
+    // Klickbare Sterne in der Bewertung
+    function setStar(starElem) {
+      const container = starElem.parentElement;
+      const stars = container.querySelectorAll('span');
+      const ratingValue = parseInt(starElem.getAttribute('data-value'));
+      stars.forEach(star => {
+        if (parseInt(star.getAttribute('data-value')) <= ratingValue) {
+          star.classList.add('selected');
+        } else {
+          star.classList.remove('selected');
+        }
+      });
+      container.querySelector('input[name="gesamt"]').value = ratingValue;
+    }
+    
+    // Formular absenden und speichern
+    function submitForm(event, beverage) {
+      event.preventDefault();
+      const form = event.target;
+      const formData = new FormData(form);
+      let entry = { beverage, timestamp: new Date().toISOString() };
+      formData.forEach((value, key) => { entry[key] = value; });
+      ratings.push(entry);
+      localStorage.setItem('ratings', JSON.stringify(ratings));
+      alert("Bewertung gespeichert!");
+      form.reset();
+      form.querySelectorAll('.star-input').forEach(starGroup => {
+        starGroup.querySelectorAll('span').forEach(star => star.classList.remove('selected'));
+        starGroup.querySelector('input[name="gesamt"]').value = 0;
+      });
+      // Zurück zum Dashboard
+      document.querySelectorAll('.form-container').forEach(form => form.classList.remove('active'));
+      document.getElementById('dashboard').classList.add('centered');
+      updateDashboard();
+    }
+    
+    // Dashboard aktualisieren: Durchschnitt berechnen und Sterne rendern
+    function updateDashboard() {
+      const beverages = ['met', 'wein', 'bier'];
+      beverages.forEach(bev => {
+        const bevRatings = ratings.filter(r => r.beverage === bev)
+                                  .map(r => parseInt(r.gesamt) || 0)
+                                  .filter(val => val > 0);
+        let avg = bevRatings.length ? (bevRatings.reduce((a, b) => a + b, 0) / bevRatings.length) : 0;
+        avg = Math.round(avg * 10) / 10;
+        document.getElementById('avg-' + bev).childNodes[0].textContent = avg + "/5 Sternen ";
+        const starDisplay = document.getElementById('avg-' + bev).querySelector('.star-display');
+        starDisplay.innerHTML = renderStars(avg);
+      });
+    }
+    
+    // Sterne rendern (volle, halbe, leere)
+    function renderStars(avg) {
+      let full = Math.floor(avg);
+      let half = (avg - full) >= 0.5 ? 1 : 0;
+      let empty = 5 - full - half;
+      let stars = '';
+      for (let i = 0; i < full; i++) stars += "&#9733;";
+      if (half) stars += "&#9734;";
+      for (let i = 0; i < empty; i++) stars += "&#9734;";
+      return stars;
+    }
+    
+    // Daten anzeigen
+    function showData() {
+      document.getElementById('storedData').textContent = JSON.stringify(ratings, null, 2);
+      document.getElementById('dataModal').style.display = 'flex';
+    }
+    
+    function closeModal() {
+      document.getElementById('dataModal').style.display = 'none';
+    }
+  </script>
 </body>
 </html>
+
